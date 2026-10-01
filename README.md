@@ -7,7 +7,7 @@
 [![uv](https://img.shields.io/badge/package%20manager-uv-purple.svg)](https://github.com/astral-sh/uv)
 [![Pydantic v2](https://img.shields.io/badge/contracts-pydantic--v2-red.svg)](https://docs.pydantic.dev/)
 [![Rich CLI](https://img.shields.io/badge/ui-rich-green.svg)](https://github.com/Textualize/rich)
-[![Tests](https://img.shields.io/badge/tests-233%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-235%20passed-brightgreen.svg)]()
 
 ---
 
@@ -34,7 +34,7 @@ flowchart TD
     Parser --> GameState["💾 GameState Store\n(Оценка, бюджет, история)"]
     
     subgraph Tier1 ["Tier 1: Детерминированный мозг (Evaluation Brain)"]
-        GameState --> Jev["🧠 Open-JEV Engine\n(Open-Jev-9B / Mock Evaluator)\nОценка: score (1-5), reaction, good_deal"]
+        GameState --> Jev["🧠 JEV Engine\n(Ollama Qwen 2.5 7B / Open-Jev-9B / Mock)\nОценка: score (1-5), reaction, good_deal"]
         Jev --> Arbiter["⚖️ Decision Arbiter (Guardrails)\n• Предел терпения (patience <= 1)\n• Потолок оценки (<= 2.5x)\n• Расчет контр-предложения"]
     end
     
@@ -54,6 +54,7 @@ flowchart TD
    - `accept` (`score`, 1–5): интегральная готовность принять предложение.
    - `reaction` (`choice`): дискретное решение (`accept`, `counter`, `reject`, `walk_away`).
    - `good_deal` (`noul`, 0.0–1.0): вероятность финансовой привлекательности сделки.
+   Поддерживает бэкенды: **Ollama** (локальный Qwen 2.5 7B с генерацией строгого JSON), **HTTP** (официальный `jev.server` Open-Jev-9B) и **Mock** (детерминированный оффлайн-эмулятор для тестов).
 
 2. **Deterministic Decision Arbiter & Guardrails (`engine/arbiter.py`)**  
    Абсолютный барьер безопасности бизнес-логики:
@@ -71,42 +72,40 @@ flowchart TD
 
 ## 2. Быстрый старт / Quickstart
 
-Проект управляется через современный менеджер пакетов [Astral uv](https://github.com/astral-sh/uv).
-
-### 2.1 Установка зависимостей
+### 2.1 Запуск с реальным локальным ИИ (Ollama + Qwen 2.5 7B)
+Если у вас запущен [Ollama](https://ollama.ai/) с моделью `qwen2.5:7b`:
 ```bash
-# Синхронизация зависимостей в виртуальное окружение
-uv sync
+# Интерактивная игра с реальным ИИ
+uv run python main.py
+
+# Или автоматическая симуляция сделки
+uv run python main.py --test-run
 ```
 
-### 2.2 Запуск игры в автономном Mock-режиме (без внешних API)
-Игра полностью готова к запуску прямо из коробки с встроенным детерминированным эмулятором Open-JEV-9B и Voice LLM:
+### 2.2 Запуск в автономном Mock-режиме (без внешних API)
+Для мгновенного тестирования логики без видеокарты:
 ```bash
 uv run python main.py --mock
 ```
 
-### 2.3 Автоматический тестовый прогон (Non-interactive Test Run)
-Позволяет моментально проверить полный игровой цикл от первого питча до закрытия раунда:
-```bash
-uv run python main.py --test-run --mock
-```
-
-### 2.4 Настройка параметров переговоров через аргументы CLI
+### 2.3 Настройка параметров переговоров через аргументы CLI
 ```bash
 # Инвестор с увеличенным бюджетом и строгим терпением
-uv run python main.py --mock --valuation 3000000 --budget 900000 --patience 3
+uv run python main.py --valuation 3000000 --budget 900000 --patience 3
 ```
 
 Флаги CLI:
 | Флаг | Описание | Значение по умолчанию |
 |---|---|---|
-| `--mock` | Принудительный оффлайн-режим (эмуляция JEV и LLM) | `False` (или из `.env`) |
+| `--backend` | Бэкенд оценщика: `ollama`, `http` (Open-Jev), или `mock` | `ollama` |
+| `--model` | Название модели в Ollama | `qwen2.5:7b` |
+| `--mock` | Принудительный оффлайн-режим (эмуляция без LLM) | `False` |
 | `--test-run` | Неинтерактивная симуляция сделки | `False` |
 | `--valuation` | Рыночная оценка вашего стартапа в € | `2,000,000` |
 | `--budget` | Доступный капитал венчурного фонда в € | `700,000` |
 | `--patience` / `--rounds` | Количество раундов терпения до ухода инвестора | `4` |
 | `--llm-url` | URL эндпоинта Voice LLM (Ollama, vLLM, OpenAI API) | `http://localhost:11434/v1` |
-| `--jev-url` | URL сервиса инференса Open-Jev-9B | `http://localhost:8000/eval` |
+| `--jev-url` | URL сервиса инференса Open-Jev-9B | `http://127.0.0.1:8791/v1/systemone` |
 
 ---
 
@@ -119,14 +118,16 @@ uv run python main.py --mock --valuation 3000000 --budget 900000 --patience 3
 ```env
 # Режим работы (False для подключения к реальным сервисам)
 MOCK_MODE=False
+JEV_BACKEND=ollama
 
-# Voice LLM (Ollama, vLLM или любой OpenAI-совместимый эндпоинт)
+# Voice LLM & Evaluator (Ollama)
 LLM_URL=http://localhost:11434/v1
 LLM_API_KEY=dummy
-LLM_MODEL=llama3:latest
+LLM_MODEL=qwen2.5:7b
+OLLAMA_URL=http://localhost:11434
 
-# Open-JEV-9B Сервис
-JEV_URL=http://localhost:8000/eval
+# Open-JEV-9B HTTP Сервис (при запуске через python -m jev.server)
+JEV_URL=http://127.0.0.1:8791/v1/systemone
 JEV_MODEL_PATH=ZefanCai/Open-Jev-9B
 
 # Параметры игры по умолчанию
@@ -137,21 +138,24 @@ DEFAULT_INVESTOR_INTEREST=0.70
 DEFAULT_INVESTOR_PATIENCE=4
 ```
 
-### 3.2 Запуск Voice LLM через Ollama
-1. Установите [Ollama](https://ollama.ai/) и загрузите модель (например, Llama-3 или Mistral):
+### 3.2 Запуск через локальный Ollama (Рекомендуется)
+1. Установите [Ollama](https://ollama.ai/) и загрузите модель:
    ```bash
-   ollama run llama3
+   ollama pull qwen2.5:7b
    ```
-2. Сервис будет доступен по адресу `http://localhost:11434/v1`.
+2. Запустите игру — она автоматически использует Ollama и для оценки условий, и для речи инвестора:
+   ```bash
+   uv run python main.py
+   ```
 
-### 3.3 Запуск Open-Jev-9B
-Модель [ZefanCai/Open-Jev-9B](https://huggingface.co/ZefanCai/Open-Jev) разворачивается через совместимый REST microservice или vLLM, принимающий JSON-запрос состояния игры `GameState` и возвращающий `JevEvaluationResult`:
-```json
-{
-  "accept_score": 4,
-  "reaction": "counter",
-  "good_deal_confidence": 0.72
-}
+### 3.3 Запуск через официальный Open-Jev сервер
+Если вы используете официальный сервер из репозитория [Zefan-Cai/Open-Jev](https://github.com/Zefan-Cai/Open-Jev):
+```bash
+python -m jev.server --checkpoint ./checkpoints/open-jev-9b/package/checkpoint --port 8791
+```
+И запустите игру с флагом бэкенда:
+```bash
+uv run python main.py --backend http --jev-url http://127.0.0.1:8791/v1/systemone
 ```
 
 ---

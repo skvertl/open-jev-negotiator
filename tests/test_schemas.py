@@ -248,10 +248,12 @@ class TestConfigSettings:
         test_settings = Settings()
         assert test_settings.LLM_URL == "http://localhost:11434/v1"
         assert test_settings.LLM_API_KEY == "dummy"
-        assert test_settings.LLM_MODEL == "llama3:latest"
-        assert test_settings.JEV_URL == "http://localhost:8000/eval"
+        assert test_settings.LLM_MODEL == "qwen2.5:7b"
+        assert test_settings.OLLAMA_URL == "http://localhost:11434"
+        assert test_settings.JEV_BACKEND == "ollama"
+        assert test_settings.JEV_URL == "http://127.0.0.1:8791/v1/systemone"
         assert test_settings.JEV_MODEL_PATH == "ZefanCai/Open-Jev-9B"
-        assert test_settings.MOCK_MODE is True
+        assert test_settings.MOCK_MODE is False
         assert test_settings.DEFAULT_COMPANY_VALUATION == 2_000_000
         assert test_settings.DEFAULT_INVESTOR_BUDGET == 700_000
         assert test_settings.DEFAULT_INVESTOR_MAX_EQUITY == 30.0

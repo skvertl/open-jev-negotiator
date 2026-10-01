@@ -200,6 +200,19 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
         default=False,
         help="Execute non-interactive automated simulation to verify pipeline",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=settings.LLM_MODEL,
+        help="LLM model name for Ollama / voice generator (default: qwen2.5:7b)",
+    )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default=settings.JEV_BACKEND,
+        choices=["ollama", "http", "mock"],
+        help="JEV evaluator backend: ollama, http (Open-Jev), or mock",
+    )
 
     parsed = parser.parse_args(args)
 
@@ -366,9 +379,14 @@ async def async_main(args: list[str] | None = None) -> int:
         else settings.DEFAULT_INVESTOR_PATIENCE
     )
 
+    is_mock = parsed_args.mock or parsed_args.backend == "mock"
+    backend = "mock" if is_mock else (parsed_args.backend or settings.JEV_BACKEND)
+
     app_settings = Settings(
-        MOCK_MODE=True if parsed_args.mock else settings.MOCK_MODE,
+        MOCK_MODE=is_mock,
+        JEV_BACKEND=backend,
         LLM_URL=parsed_args.llm_url or settings.LLM_URL,
+        LLM_MODEL=parsed_args.model or settings.LLM_MODEL,
         JEV_URL=parsed_args.jev_url or settings.JEV_URL,
         DEFAULT_COMPANY_VALUATION=parsed_args.valuation or settings.DEFAULT_COMPANY_VALUATION,
         DEFAULT_INVESTOR_BUDGET=parsed_args.budget or settings.DEFAULT_INVESTOR_BUDGET,

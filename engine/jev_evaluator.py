@@ -1,5 +1,6 @@
 """Open-JEV Evaluator engine: Mock and HTTP clients for quantitative deal evaluations."""
 from abc import ABC, abstractmethod
+import json
 from typing import Any
 import httpx
 
@@ -208,13 +209,88 @@ class HttpJevEvaluator(BaseJevEvaluator):
         return self.parse_response(data)
 
 
+class OllamaJevEvaluator(BaseJevEvaluator):
+    """Evaluator executing quantitative JEV evaluation via local Ollama (e.g. Qwen 2.5 7B)."""
+
+    def __init__(
+        self,
+        ollama_url: str = "http://localhost:11434",
+        model: str = "qwen2.5:7b",
+        timeout: float = 30.0,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.ollama_url = ollama_url.rstrip("/")
+        self.model = model
+        self.timeout = timeout
+        self._client = client
+
+    def build_payload(self, state: GameState) -> dict[str, Any]:
+        """Construct Ollama chat completion payload requesting strict JSON decision."""
+        system_content = (
+            "You are a strict quantitative venture capital evaluator (System-1 evaluation engine). "
+            "Analyze the startup investment offer using the current game state.\n"
+            "Evaluate:\n"
+            "1. accept_score: integer from 1 to 5 (1=definitely reject/unacceptable, 5=definitely accept/extremely attractive).\n"
+            "2. reaction: string choice from [\"accept\", \"counter\", \"reject\", \"walk_away\"].\n"
+            "3. good_deal_confidence: float between 0.0 and 1.0 (calibrated probability that this deal is financially advantageous).\n\n"
+            "Rules:\n"
+            "- If requested investment exceeds budget, score must be <= 2 and reaction must be reject or walk_away.\n"
+            "- If patience is <= 1 and offer is not acceptable, reaction must be walk_away.\n"
+            "- Output ONLY valid JSON with keys: accept_score, reaction, good_deal_confidence."
+        )
+        user_content = json.dumps(state.to_jev_payload(), ensure_ascii=False)
+        return {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+            ],
+            "format": "json",
+            "stream": False,
+            "options": {
+                "temperature": 0.1,
+            },
+        }
+
+    async def evaluate(self, state: GameState) -> JevEvaluationResult:
+        """Call Ollama /api/chat and parse response into strictly validated JevEvaluationResult."""
+        payload = self.build_payload(state)
+        endpoint = f"{self.ollama_url}/api/chat"
+
+        if self._client is not None:
+            response = await self._client.post(endpoint, json=payload, timeout=self.timeout)
+        else:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(endpoint, json=payload)
+
+        response.raise_for_status()
+        data = response.json()
+        message_content = data.get("message", {}).get("content", "{}")
+        if isinstance(message_content, str):
+            try:
+                parsed_json = json.loads(message_content)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Failed to decode Ollama JSON evaluation: {message_content}") from exc
+        elif isinstance(message_content, dict):
+            parsed_json = message_content
+        else:
+            raise ValueError(f"Unexpected Ollama message content type: {type(message_content)}")
+
+        return HttpJevEvaluator.parse_response(parsed_json)
+
+
 def get_jev_evaluator(settings_obj: Settings | None = None) -> BaseJevEvaluator:
     """Factory creating configured Jev evaluator based on application settings."""
     cfg = settings_obj or settings
-    if cfg.MOCK_MODE:
+    if cfg.MOCK_MODE or cfg.JEV_BACKEND == "mock":
         return MockJevEvaluator()
-    return HttpJevEvaluator(
-        jev_url=cfg.JEV_URL,
+    if cfg.JEV_BACKEND == "http":
+        return HttpJevEvaluator(
+            jev_url=cfg.JEV_URL,
+        )
+    return OllamaJevEvaluator(
+        ollama_url=cfg.OLLAMA_URL,
+        model=cfg.LLM_MODEL,
     )
 
 
@@ -222,6 +298,7 @@ __all__ = [
     "BaseJevEvaluator",
     "MockJevEvaluator",
     "HttpJevEvaluator",
+    "OllamaJevEvaluator",
     "DEFAULT_JEV_SCHEMA",
     "get_jev_evaluator",
 ]

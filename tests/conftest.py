@@ -58,3 +58,10 @@ def sample_voice_directive() -> VoiceDirective:
         counter_offer_investment=500_000,
         counter_offer_equity=25.0,
     )
+
+
+@pytest.fixture(autouse=True)
+def default_mock_settings(monkeypatch):
+    """Ensure tests run in mock mode by default for speed and isolation."""
+    monkeypatch.setattr("config.settings.MOCK_MODE", True)
+    monkeypatch.setattr("config.settings.JEV_BACKEND", "mock")

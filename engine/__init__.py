@@ -4,6 +4,7 @@ from engine.jev_evaluator import (
     BaseJevEvaluator,
     HttpJevEvaluator,
     MockJevEvaluator,
+    OllamaJevEvaluator,
     get_jev_evaluator,
 )
 
@@ -22,6 +23,7 @@ __all__ = [
     "BaseJevEvaluator",
     "MockJevEvaluator",
     "HttpJevEvaluator",
+    "OllamaJevEvaluator",
     "get_jev_evaluator",
     "VOICE_SYSTEM_PROMPT_TEMPLATE",
     "BaseVoiceLLM",

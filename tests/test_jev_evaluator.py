@@ -9,6 +9,7 @@ from engine.jev_evaluator import (
     BaseJevEvaluator,
     MockJevEvaluator,
     HttpJevEvaluator,
+    OllamaJevEvaluator,
     get_jev_evaluator,
     DEFAULT_JEV_SCHEMA,
 )
@@ -417,16 +418,46 @@ def test_factory_returns_mock_when_mock_mode_true():
     assert isinstance(evaluator, BaseJevEvaluator)
 
 
-def test_factory_returns_http_when_mock_mode_false():
-    """get_jev_evaluator returns HttpJevEvaluator when MOCK_MODE=False."""
-    settings = Settings(MOCK_MODE=False, JEV_URL="http://remote-jev:8000/eval")
+def test_factory_returns_http_when_backend_http():
+    """get_jev_evaluator returns HttpJevEvaluator when JEV_BACKEND='http' and MOCK_MODE=False."""
+    settings = Settings(MOCK_MODE=False, JEV_BACKEND="http", JEV_URL="http://remote-jev:8000/eval")
     evaluator = get_jev_evaluator(settings)
     assert isinstance(evaluator, HttpJevEvaluator)
     assert isinstance(evaluator, BaseJevEvaluator)
     assert evaluator.jev_url == "http://remote-jev:8000/eval"
 
 
+def test_factory_returns_ollama_when_backend_ollama():
+    """get_jev_evaluator returns OllamaJevEvaluator when JEV_BACKEND='ollama' and MOCK_MODE=False."""
+    settings = Settings(MOCK_MODE=False, JEV_BACKEND="ollama")
+    evaluator = get_jev_evaluator(settings)
+    assert isinstance(evaluator, OllamaJevEvaluator)
+    assert isinstance(evaluator, BaseJevEvaluator)
+
+
 def test_factory_uses_default_settings_when_none_provided():
     """get_jev_evaluator uses global settings by default."""
     evaluator = get_jev_evaluator()
     assert isinstance(evaluator, BaseJevEvaluator)
+
+
+async def test_ollama_evaluator_evaluates_correctly(make_game_state):
+    """OllamaJevEvaluator sends chat request and strictly parses JSON response."""
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_resp = AsyncMock(spec=httpx.Response)
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "message": {
+            "content": '{"accept_score": 4, "reaction": "accept", "good_deal_confidence": 0.82}'
+        }
+    }
+    mock_resp.raise_for_status = lambda: None
+    mock_client.post.return_value = mock_resp
+
+    evaluator = OllamaJevEvaluator(client=mock_client)
+    state = make_game_state(investment=300_000, equity=20.0)
+
+    result = await evaluator.evaluate(state)
+    assert result.accept_score == 4
+    assert result.reaction == "accept"
+    assert result.good_deal_confidence == 0.82
