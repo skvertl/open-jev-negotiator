@@ -13,9 +13,9 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = "dummy"
     LLM_MODEL: str = "qwen2.5:7b"
     OLLAMA_URL: str = "http://localhost:11434"
-    JEV_BACKEND: str = "ollama"  # "ollama", "http" (Open-Jev), or "mock"
+    JEV_BACKEND: str = "http"  # "http" (Open-Jev), "ollama", or "mock"
     JEV_URL: str = "http://127.0.0.1:8791/v1/systemone"
-    JEV_MODEL_PATH: str = "ZefanCai/Open-Jev-9B"
+    JEV_MODEL_PATH: str = "ZefanCai/Open-Jev-2B"
     MOCK_MODE: bool = False
 
     DEFAULT_COMPANY_VALUATION: int = 2_000_000

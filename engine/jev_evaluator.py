@@ -137,15 +137,36 @@ class HttpJevEvaluator(BaseJevEvaluator):
         self.schema = schema or DEFAULT_JEV_SCHEMA
 
     def build_payload(self, state: GameState) -> dict[str, Any]:
-        """Build JSON payload conforming to Spec section 3.2 and 4.1."""
+        """Build JSON payload conforming to official Open-Jev server and Spec contracts."""
+        state_payload = state.to_jev_payload()
+        questions = {
+            "accept": {
+                "type": "score",
+                "instructions": "Rate readiness to accept the investment offer on a 1-5 scale.",
+                "criteria": ["1", "2", "3", "4", "5"],
+            },
+            "reaction": {
+                "type": "choice",
+                "instructions": "Determine the strategic action in response to the offer.",
+                "criteria": ["accept", "counter", "reject", "walk_away"],
+            },
+            "good_deal": {
+                "type": "noul",
+                "instructions": "Evaluate if the deal is financially attractive and advantageous to the investor.",
+            },
+        }
         return {
-            **state.to_jev_payload(),
+            "state": state_payload,
+            "questions": questions,
+            **state_payload,
             "schema": self.schema.model_dump(exclude_none=True),
         }
 
     @staticmethod
     def parse_response(data: dict[str, Any]) -> JevEvaluationResult:
         """Parse raw response dict into strictly validated JevEvaluationResult.
+
+        Supports official Open-Jev answers format, results/evaluation objects, and flat payloads.
 
         Raises:
             ValueError: If response or extracted target is not a dictionary.
@@ -154,19 +175,27 @@ class HttpJevEvaluator(BaseJevEvaluator):
         if not isinstance(data, dict):
             raise ValueError(f"Expected dict response from JEV, got {type(data).__name__}: {data}")
 
-        target = data.get("results") or data.get("evaluation") or data
+        target = data.get("answers") or data.get("results") or data.get("evaluation") or data
         if not isinstance(target, dict):
             raise ValueError(f"Expected dict in evaluation results, got {type(target).__name__}: {target}")
 
         extracted: dict[str, Any] = {}
 
         # 1. Accept score (1-5) - support accept_score or accept
+        raw_score = None
         if "accept_score" in target:
             val = target["accept_score"]
-            extracted["accept_score"] = val.get("score") if isinstance(val, dict) else val
+            raw_score = val.get("score") if isinstance(val, dict) else val
         elif "accept" in target:
             val = target["accept"]
-            extracted["accept_score"] = val.get("score") if isinstance(val, dict) else val
+            raw_score = val.get("score") if isinstance(val, dict) else val
+
+        if raw_score is not None:
+            if isinstance(raw_score, float):
+                # Open-Jev score can be float expected value; round to nearest integer
+                extracted["accept_score"] = round(raw_score)
+            else:
+                extracted["accept_score"] = raw_score
 
         # 2. Reaction choice - support reaction
         if "reaction" in target:
@@ -177,13 +206,13 @@ class HttpJevEvaluator(BaseJevEvaluator):
         if "good_deal_confidence" in target:
             val = target["good_deal_confidence"]
             if isinstance(val, dict):
-                extracted["good_deal_confidence"] = val.get("confidence", val.get("score"))
+                extracted["good_deal_confidence"] = val.get("noul", val.get("confidence", val.get("score")))
             else:
                 extracted["good_deal_confidence"] = val
         elif "good_deal" in target:
             val = target["good_deal"]
             if isinstance(val, dict):
-                extracted["good_deal_confidence"] = val.get("confidence", val.get("score"))
+                extracted["good_deal_confidence"] = val.get("noul", val.get("confidence", val.get("score")))
             else:
                 extracted["good_deal_confidence"] = val
 
