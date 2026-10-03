@@ -194,7 +194,7 @@ class HttpVoiceLLM(BaseVoiceLLM):
         llm_url: str = "http://localhost:11434/v1",
         api_key: str = "dummy",
         model: str = "llama3:latest",
-        timeout: float = 15.0,
+        timeout: float = 60.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.llm_url = llm_url

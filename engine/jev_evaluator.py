@@ -127,7 +127,7 @@ class HttpJevEvaluator(BaseJevEvaluator):
     def __init__(
         self,
         jev_url: str = "http://localhost:8000/eval",
-        timeout: float = 10.0,
+        timeout: float = 60.0,
         client: httpx.AsyncClient | None = None,
         schema: JevEvaluationSchema | None = None,
     ) -> None:
@@ -143,16 +143,27 @@ class HttpJevEvaluator(BaseJevEvaluator):
             "accept": {
                 "type": "score",
                 "instructions": "Rate readiness to accept the investment offer on a 1-5 scale.",
-                "criteria": ["1", "2", "3", "4", "5"],
+                "criteria": [
+                    "1 - Definitely reject",
+                    "2 - Unfavorable",
+                    "3 - Neutral",
+                    "4 - Attractive",
+                    "5 - Definitely accept",
+                ],
             },
             "reaction": {
                 "type": "choice",
                 "instructions": "Determine the strategic action in response to the offer.",
-                "criteria": ["accept", "counter", "reject", "walk_away"],
+                "criteria": {
+                    "accept": "Accept the founder's offer and close the investment deal.",
+                    "counter": "Make a counter-offer with revised investment terms.",
+                    "reject": "Reject the offer but keep negotiating.",
+                    "walk_away": "Terminate negotiations and leave the deal.",
+                },
             },
             "good_deal": {
                 "type": "noul",
-                "instructions": "Evaluate if the deal is financially attractive and advantageous to the investor.",
+                "instructions": "Is this investment deal financially attractive to the venture investor?",
             },
         }
         return {
@@ -183,17 +194,21 @@ class HttpJevEvaluator(BaseJevEvaluator):
 
         # 1. Accept score (1-5) - support accept_score or accept
         raw_score = None
+        has_zero_indexed_legend = False
         if "accept_score" in target:
             val = target["accept_score"]
             raw_score = val.get("score") if isinstance(val, dict) else val
+            has_zero_indexed_legend = isinstance(val, dict) and "legend" in val and "0" in val["legend"]
         elif "accept" in target:
             val = target["accept"]
             raw_score = val.get("score") if isinstance(val, dict) else val
+            has_zero_indexed_legend = isinstance(val, dict) and "legend" in val and "0" in val["legend"]
 
         if raw_score is not None:
             if isinstance(raw_score, float):
-                # Open-Jev score can be float expected value; round to nearest integer
-                extracted["accept_score"] = round(raw_score)
+                # If Open-Jev returns 0-indexed expected value (0..4), shift to 1..5
+                adjusted = (raw_score + 1.0) if has_zero_indexed_legend else raw_score
+                extracted["accept_score"] = int(round(adjusted))
             else:
                 extracted["accept_score"] = raw_score
 
