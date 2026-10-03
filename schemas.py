@@ -34,9 +34,14 @@ class GameState(BaseModel):
     player_offer: PlayerOffer
     investor: InvestorState
     history: list[str] = Field(default_factory=list)
+    last_counter_offer: tuple[int, float] | None = None
 
     def to_jev_payload(self) -> dict[str, Any]:
         """Serialize state to standard JSON payload for Open-JEV engine matching spec 4.1."""
+        clean_history = [
+            h.split(". Реплика:")[0] if ". Реплика:" in h else h
+            for h in self.history
+        ]
         return {
             "valuation": self.company_valuation,
             "player_offer": {
@@ -49,7 +54,7 @@ class GameState(BaseModel):
                 "interest": self.investor.interest,
                 "patience": self.investor.patience,
             },
-            "history": list(self.history),
+            "history": clean_history,
         }
 
 

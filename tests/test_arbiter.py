@@ -429,3 +429,39 @@ class TestArbitrateOrchestration:
         assert evaluation.reaction == "walk_away"
         assert directive.reaction == "walk_away"
         assert directive.counter_offer_investment is None
+
+    def test_arbitrate_agreement_on_counter_offer_terms_forces_accept(
+        self,
+        arbiter: DecisionArbiter,
+        base_game_state: GameState,
+    ):
+        base_game_state.last_counter_offer = (500_000, 30.0)
+        base_game_state.player_offer = PlayerOffer(investment=500_000, equity=30.0)
+        raw_eval = JevEvaluationResult(
+            accept_score=2,
+            reaction="reject",
+            good_deal_confidence=0.25,
+        )
+        evaluation, directive = arbiter.arbitrate(base_game_state, raw_eval)
+        assert evaluation.reaction == "accept"
+        assert evaluation.accept_score == 5
+        assert evaluation.good_deal_confidence >= 0.95
+        assert directive.reaction == "accept"
+
+    def test_arbitrate_better_offer_than_counter_forces_accept(
+        self,
+        arbiter: DecisionArbiter,
+        base_game_state: GameState,
+    ):
+        # 400k for 30% is even more advantageous than requested 500k for 30%
+        base_game_state.last_counter_offer = (500_000, 30.0)
+        base_game_state.player_offer = PlayerOffer(investment=400_000, equity=30.0)
+        raw_eval = JevEvaluationResult(
+            accept_score=3,
+            reaction="counter",
+            good_deal_confidence=0.30,
+        )
+        evaluation, directive = arbiter.arbitrate(base_game_state, raw_eval)
+        assert evaluation.reaction == "accept"
+        assert evaluation.accept_score == 5
+        assert directive.reaction == "accept"

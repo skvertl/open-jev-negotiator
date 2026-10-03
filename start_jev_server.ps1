@@ -4,7 +4,7 @@ Write-Host "Starting Open-Jev-2B server on http://127.0.0.1:8791..." -Foreground
   --checkpoint "C:\Users\user\Open-Jev\models\Open-Jev-2B\package\checkpoint" `
   --device cuda:0 `
   --max-length 4096 `
-  --batch-size 1 `
+  --batch-size 16 `
   --no-prefix-cache `
   --host 127.0.0.1 `
   --port 8791

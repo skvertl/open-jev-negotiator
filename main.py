@@ -360,13 +360,49 @@ async def run_game(
             is_player=True,
         )
 
-        round_res = await session.step(parsed)
+        try:
+            round_res = await session.step(parsed)
+        except Exception as exc:
+            renderer.console.print(f"\n[bold red]❌ Ошибка соединения во время раунда:[/bold red] {exc}")
+            renderer.console.print("[yellow]Убедитесь, что сервер Open-Jev (порт 8791) и Ollama (порт 11434) запущены и доступны.[/yellow]\n")
+            return 1
+
         renderer.render_eval_telemetry(round_res.evaluation)
         renderer.render_dialogue("Investor", round_res.investor_dialogue)
         renderer.render_round_summary(round_res)
 
     renderer.render_game_over(session.status, session)
     return 0 if session.status == GameStatus.WON else 1
+
+
+async def check_preflight_services(app_settings: Settings, renderer: CliRenderer) -> bool:
+    """Pre-flight check connectivity to Open-Jev if not in mock mode."""
+    if app_settings.MOCK_MODE:
+        return True
+
+    import httpx
+
+    jev_healthy = False
+    try:
+        base_jev = app_settings.JEV_URL.split("/v1/")[0].rstrip("/")
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get(f"{base_jev}/health")
+            if resp.status_code == 200:
+                jev_healthy = True
+    except Exception:
+        jev_healthy = False
+
+    if not jev_healthy:
+        renderer.console.print("\n[bold red]❌ Сервер Open-Jev не отвечает![/bold red]")
+        renderer.console.print(f"[yellow]Ожидаемый адрес: {app_settings.JEV_URL}[/yellow]\n")
+        renderer.console.print("[bold cyan]Что делать:[/bold cyan]")
+        renderer.console.print("  1. Запустите сервер Open-Jev в отдельном терминале PowerShell:")
+        renderer.console.print("     [bold green].\\start_jev_server.ps1[/bold green]")
+        renderer.console.print("  2. Либо запустите игру в автономном режиме без GPU:")
+        renderer.console.print("     [bold green]uv run python main.py --mock[/bold green]\n")
+        return False
+
+    return True
 
 
 async def async_main(args: list[str] | None = None) -> int:
@@ -394,6 +430,11 @@ async def async_main(args: list[str] | None = None) -> int:
     )
 
     renderer = CliRenderer()
+    if not is_mock:
+        is_healthy = await check_preflight_services(app_settings, renderer)
+        if not is_healthy:
+            return 1
+
     session = GameSession.create_session(
         company_valuation=app_settings.DEFAULT_COMPANY_VALUATION,
         investor_budget=app_settings.DEFAULT_INVESTOR_BUDGET,

@@ -76,6 +76,8 @@ class GameSession:
         self._round_number: int = 0
         self._status: GameStatus = GameStatus.IN_PROGRESS
         self._round_results: list[RoundResult] = []
+        if self._state.last_counter_offer is None:
+            self._state.last_counter_offer = self._arbiter.calculate_counter_offer(self._state)
 
     @classmethod
     def create_session(
@@ -182,6 +184,17 @@ class GameSession:
 
         # 2. Run deterministic Arbiter guardrails and counter-offer arbitration
         evaluation, directive = self._arbiter.arbitrate(self._state, raw_eval)
+
+        # Update last counter offer if investor countered
+        if evaluation.reaction == "counter":
+            if (
+                directive.counter_offer_investment is not None
+                and directive.counter_offer_equity is not None
+            ):
+                self._state.last_counter_offer = (
+                    directive.counter_offer_investment,
+                    directive.counter_offer_equity,
+                )
 
         # 3. Decrement investor patience
         self._state.investor.patience = max(0, self._state.investor.patience - 1)

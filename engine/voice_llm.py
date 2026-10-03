@@ -117,6 +117,18 @@ def validate_dialogue_guardrails(speech: str, directive: VoiceDirective) -> str:
                 if inv is not None and eq is not None:
                     return f"Ваши условия меня не устраивают. Мое встречное предложение: {inv}€ за {eq}%."
                 return "Ваши текущие условия неприемлемы, пересмотрите параметры сделки."
+    elif directive.reaction == "accept":
+        refusal_patterns = [
+            r"\b(?:не\s+можем|не\s+могу|не\s+буду)\s+(?:принять|согласиться)\b",
+            r"\b(?:отклоняю|отказываюсь|отказ)\b",
+            r"\bусловия\s+(?:слишком\s+)?невыгодны\b",
+            r"\bнет,\s+мы\s+не\s+можем\b",
+            r"\bмы\s+не\s+готовы\s+принимать\b",
+            r"\bне\s+соответствует\s+нашим\s+условиям\b",
+        ]
+        for pattern in refusal_patterns:
+            if re.search(pattern, cleaned.lower()):
+                return "Отличное предложение, мы договорились! Оформляем сделку на этих условиях."
 
     return cleaned
 
@@ -211,11 +223,21 @@ class HttpVoiceLLM(BaseVoiceLLM):
         system_content = format_voice_prompt(directive)
         messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
 
+        action_intent = {
+            "accept": "Решение: ACCEPT (согласие на сделку). Озвучь согласие инвестора на сделку и партнерство.",
+            "counter": "Решение: COUNTER (встречное предложение). Озвучь встречные условия инвестора.",
+            "reject": "Решение: REJECT (отказ). Озвучь аргументированный отказ инвестора.",
+            "walk_away": "Решение: WALK_AWAY (выход из сделки). Озвучь выход инвестора из переговоров.",
+        }
+        intent_instruction = action_intent.get(
+            directive.reaction, "Озвучь решение инвестора в соответствии с директивой."
+        )
+
         if history:
             history_text = "\n".join(history[-4:])
-            user_content = f"История переговоров:\n{history_text}\n\nОзвучь решение инвестора."
+            user_content = f"История переговоров:\n{history_text}\n\n{intent_instruction}"
         else:
-            user_content = "Озвучь решение инвестора в соответствии с директивой."
+            user_content = intent_instruction
 
         messages.append({"role": "user", "content": user_content})
 

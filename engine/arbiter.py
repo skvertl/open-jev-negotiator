@@ -16,15 +16,16 @@ class DecisionArbiter:
     def check_guardrails(
         self, state: GameState, raw_result: JevEvaluationResult
     ) -> JevEvaluationResult:
-        """Apply deterministic guardrails to prevent absurd or impossible deals.
+        """Apply deterministic guardrails to prevent absurd, impossible, or contradictory deals.
 
         Guardrails:
         1. Predatory Valuation: If player implied valuation >= threshold (default 2.5x company valuation),
            force reaction to 'walk_away'.
         2. Budget Ceiling: If requested investment > investor budget, investor cannot fund it.
            If patience <= 1 or already walk_away, force 'walk_away', otherwise force 'reject'.
-        3. Patience Exhaustion: If patience <= 1 and raw reaction != 'accept',
-           force reaction to 'walk_away'.
+        3. Agreement on Terms: If player's offer meets or improves upon the investor's active counter-offer
+           (within budget and max_equity constraints), force reaction to 'accept'.
+        4. Patience Exhaustion: If patience <= 1 and reaction != 'accept', force reaction to 'walk_away'.
         """
         # Guardrail 1: Implied valuation exceeds acceptable multiple of company valuation
         if (
@@ -42,7 +43,24 @@ class DecisionArbiter:
             )
             return raw_result.model_copy(update={"reaction": new_reaction})
 
-        # Guardrail 3: Low patience forces walk_away unless already an accepted deal
+        # Guardrail 3: Agreement on terms (founder accepted or improved upon counter-offer)
+        if state.last_counter_offer is not None:
+            target_inv, target_eq = state.last_counter_offer
+            if (
+                state.player_offer.investment <= target_inv
+                and state.player_offer.equity >= target_eq
+                and state.player_offer.equity <= state.investor.max_equity
+                and state.player_offer.investment <= state.investor.budget
+            ):
+                return raw_result.model_copy(
+                    update={
+                        "reaction": "accept",
+                        "accept_score": 5,
+                        "good_deal_confidence": max(raw_result.good_deal_confidence, 0.95),
+                    }
+                )
+
+        # Guardrail 4: Low patience forces walk_away unless already an accepted deal
         if state.investor.patience <= 1 and raw_result.reaction != "accept":
             return raw_result.model_copy(update={"reaction": "walk_away"})
 
