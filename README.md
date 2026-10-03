@@ -7,18 +7,25 @@
 [![uv](https://img.shields.io/badge/package%20manager-uv-purple.svg)](https://github.com/astral-sh/uv)
 [![Pydantic v2](https://img.shields.io/badge/contracts-pydantic--v2-red.svg)](https://docs.pydantic.dev/)
 [![Rich CLI](https://img.shields.io/badge/ui-rich-green.svg)](https://github.com/Textualize/rich)
-[![Tests](https://img.shields.io/badge/tests-235%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-237%20passed-brightgreen.svg)]()
+[![Report](https://img.shields.io/badge/report-REPORT.md-blue.svg)](REPORT.md)
+
+---
+
+> 🚀 **Полный отчет о проекте и бенчмарках:** Ознакомьтесь с [**REPORT.md**](REPORT.md) — детальный разбор реальной победной сессии с локальными моделями Open-Jev-2B и Ollama Qwen 2.5 7B, замеры задержки инференса (~490 мс) и каталог guardrails.
 
 ---
 
 ## 📖 Содержание / Table of Contents
 - [1. Концепция и Архитектура / Concept & Architecture](#1-концепция-и-архитектура--concept--architecture)
-- [2. Быстрый старт / Quickstart](#2-быстрый-старт--quickstart)
-- [3. Подключение реальных моделей / Real Models Guide](#3-подключение-реальных-моделей--real-models-guide)
-- [4. Правила игры и синтаксис / Game Rules & Syntax](#4-правила-игры-и-синтаксис--game-rules--syntax)
-- [5. Запуск тестов / Running Tests](#5-запуск-тестов--running-tests)
-- [6. Структура проекта / Project Structure](#6-структура-проекта--project-structure)
-- [7. English Summary](#7-english-summary)
+- [2. Демонстрация игрового процесса / Gameplay Demo](#2-демонстрация-игрового-процесса--gameplay-demo)
+- [3. Быстрый старт / Quickstart](#3-быстрый-старт--quickstart)
+- [4. Подключение реальных моделей / Real Models Guide](#4-подключение-реальных-моделей--real-models-guide)
+- [5. Правила игры и синтаксис / Game Rules & Syntax](#5-правила-игры-и-синтаксис--game-rules--syntax)
+- [6. Запуск тестов / Running Tests](#6-запуск-тестов--running-tests)
+- [7. Структура проекта / Project Structure](#7-структура-проекта--project-structure)
+- [8. English Summary](#8-english-summary)
+- [📊 Итоговый отчет проекта / Full Report (REPORT.md)](REPORT.md)
 
 ---
 
@@ -70,9 +77,22 @@ flowchart TD
 
 ---
 
-## 2. Быстрый старт / Quickstart
+## 2. Демонстрация игрового процесса / Gameplay Demo
 
-### 2.1 Запуск с реальным локальным ИИ (Ollama + Qwen 2.5 7B)
+Ниже представлены скриншоты реальной интерактивной партии переговоров в терминале с подключенными локальными моделями **Open-Jev-2B** (GPU CUDA) и **Ollama Qwen 2.5 7B**:
+
+| Раунд 1: Первый оффер фаундера и контр-оффер инвестора | Раунд 3: Согласие инвестора и победное закрытие сделки |
+| :---: | :---: |
+| ![Раунд 1](docs/screenshots/gameplay_round1.png) | ![Победа](docs/screenshots/gameplay_victory.png) |
+
+> 📌 **Подробный разбор партии, бенчмарки и архитектура:**  
+> Ознакомьтесь с [**Итоговым отчетом проекта (REPORT.md)**](REPORT.md) — подробный разбор ходов, замеры времени инференса Open-Jev-2B (~490 мс) и каталог защитных механизмов (Guardrails).
+
+---
+
+## 3. Быстрый старт / Quickstart
+
+### 3.1 Запуск с реальным локальным ИИ (Ollama + Qwen 2.5 7B)
 Если у вас запущен [Ollama](https://ollama.ai/) с моделью `qwen2.5:7b`:
 ```bash
 # Интерактивная игра с реальным ИИ
@@ -82,13 +102,13 @@ uv run python main.py
 uv run python main.py --test-run
 ```
 
-### 2.2 Запуск в автономном Mock-режиме (без внешних API)
+### 3.2 Запуск в автономном Mock-режиме (без внешних API)
 Для мгновенного тестирования логики без видеокарты:
 ```bash
 uv run python main.py --mock
 ```
 
-### 2.3 Настройка параметров переговоров через аргументы CLI
+### 3.3 Настройка параметров переговоров через аргументы CLI
 ```bash
 # Инвестор с увеличенным бюджетом и строгим терпением
 uv run python main.py --valuation 3000000 --budget 900000 --patience 3
@@ -109,11 +129,11 @@ uv run python main.py --valuation 3000000 --budget 900000 --patience 3
 
 ---
 
-## 3. Подключение реальных моделей / Real Models Guide
+## 4. Подключение реальных моделей / Real Models Guide
 
 Для работы с реальными нейросетями настройте файл окружения `.env`.
 
-### 3.1 Конфигурация `.env`
+### 4.1 Конфигурация `.env`
 Создайте файл `.env` в корне проекта (по шаблону):
 ```env
 # Режим работы (False для подключения к реальным сервисам)
@@ -138,7 +158,7 @@ DEFAULT_INVESTOR_INTEREST=0.70
 DEFAULT_INVESTOR_PATIENCE=4
 ```
 
-### 3.2 Запуск через локальный Ollama (Рекомендуется)
+### 4.2 Запуск через локальный Ollama (Рекомендуется)
 1. Установите [Ollama](https://ollama.ai/) и загрузите модель:
    ```bash
    ollama pull qwen2.5:7b
@@ -148,7 +168,7 @@ DEFAULT_INVESTOR_PATIENCE=4
    uv run python main.py
    ```
 
-### 3.3 Запуск через официальный Open-Jev сервер
+### 4.3 Запуск через официальный Open-Jev сервер
 Если вы используете официальный сервер из репозитория [Zefan-Cai/Open-Jev](https://github.com/Zefan-Cai/Open-Jev):
 ```bash
 python -m jev.server --checkpoint ./checkpoints/open-jev-9b/package/checkpoint --port 8791
@@ -160,9 +180,9 @@ uv run python main.py --backend http --jev-url http://127.0.0.1:8791/v1/systemon
 
 ---
 
-## 4. Правила игры и синтаксис / Game Rules & Syntax
+## 5. Правила игры и синтаксис / Game Rules & Syntax
 
-### 4.1 Математика сделки
+### 5.1 Математика сделки
 - **Имплицитная оценка компании (Implied Valuation):**
   $$\text{Implied Valuation} = \frac{\text{Investment}}{\text{Equity} / 100}$$
 - **Коэффициент оценки ($\rho$):**
@@ -172,7 +192,7 @@ uv run python main.py --backend http --jev-url http://127.0.0.1:8791/v1/systemon
   - $1.15 < \rho \le 2.50$: Завышенная оценка — риск отказа (`reject`).
   - $\rho > 2.50$ или $\text{Investment} > \text{Budget}$: Хищническое предложение — немедленный срыв переговоров (`walk_away`).
 
-### 4.2 Поддерживаемые форматы ввода
+### 5.2 Поддерживаемые форматы ввода
 CLI-парсер распознает естественный язык, сокращения и валюты:
 - `500k 10%` — €500,000 за 10%
 - `500000 15` — прямой числовой ввод (€500,000 за 15%)
@@ -182,7 +202,7 @@ CLI-парсер распознает естественный язык, сок�
 - `450k for 18%` — с англоязычным предлогом
 - `250 тыс за 10%` / `1.5 млн 20%` — текстовые множители
 
-### 4.3 Команды управления
+### 5.3 Команды управления
 - `help` / `?` — показать справку по правилам и синтаксису.
 - `status` — повторно вывести карточку стартапа и профиль инвестора.
 - `history` — показать хронологию всех ходов текущей сессии.
@@ -190,7 +210,7 @@ CLI-парсер распознает естественный язык, сок�
 
 ---
 
-## 5. Запуск тестов / Running Tests
+## 6. Запуск тестов / Running Tests
 
 Проект разработан по строгой методологии **Test-Driven Development (TDD)** с полным покрытием контрактов, логики арбитража, адаптеров моделей, UI и CLI-парсера.
 
@@ -205,11 +225,11 @@ uv run pytest -v
 uv run pytest tests/test_main.py -v
 ```
 
-Текущее состояние: **233 passed** (0 failures, 0 regressions).
+Текущее состояние: **237 passed** (0 failures, 0 regressions).
 
 ---
 
-## 6. Структура проекта / Project Structure
+## 7. Структура проекта / Project Structure
 
 ```text
 open-jev-negotiator/
@@ -222,6 +242,8 @@ open-jev-negotiator/
 ├── game/
 │   ├── session.py            # Координатор игровой сессии и машины состояний
 │   └── cli_renderer.py       # Rich UI рендерер (баннеры, панели, сердечки терпения)
+├── docs/
+│   └── screenshots/          # Скриншоты реального геймплея для отчета и README
 ├── tests/
 │   ├── conftest.py           # Pytest фикстуры
 │   ├── test_schemas.py       # Тесты контрактов и валидации данных
@@ -233,12 +255,13 @@ open-jev-negotiator/
 │   └── test_main.py          # Тесты CLI парсера, аргументов и E2E сценариев
 ├── main.py                   # Точка входа: REPL цикл и неинтерактивная симуляция
 ├── pyproject.toml            # Описание проекта и зависимостей uv
-└── README.md                 # Документация проекта
+├── README.md                 # Главная документация проекта
+└── REPORT.md                 # Полный отчет проекта с разбором сессии и бенчмарками
 ```
 
 ---
 
-## 7. English Summary
+## 8. English Summary
 
 **Open-JEV Negotiator** is a CLI negotiation game showcasing a **two-tier AI architecture**:
 1. **Tier 1 (Quantitative Evaluation Brain):** Open-JEV-9B reasoning model evaluates game state along discrete axes (`accept_score`, discrete `reaction`, `good_deal` confidence).
